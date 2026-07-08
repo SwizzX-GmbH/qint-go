@@ -1,0 +1,27 @@
+# Compiled binaries and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of `go tool cover` and profiling
+*.out
+*.prof
+coverage.*
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Dependency vendoring (this SDK has no third-party deps)
+/vendor/
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+*.swp
