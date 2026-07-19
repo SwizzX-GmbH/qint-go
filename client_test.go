@@ -106,16 +106,39 @@ func TestCreateIntentOmitsEmptyOptionalFields(t *testing.T) {
 	})
 
 	if _, err := client.CreateIntent(context.Background(), CreateIntentParams{
-		Amount:   5,
-		Currency: CurrencyEUR,
+		Amount:         5,
+		Currency:       CurrencyEUR,
+		IdempotencyKey: "order-5",
 	}); err != nil {
 		t.Fatalf("CreateIntent: %v", err)
 	}
 
-	for _, k := range []string{"title", "idempotencyKey", "returnUrl"} {
+	if gotBody["idempotencyKey"] != "order-5" {
+		t.Errorf("body idempotencyKey = %v, want order-5", gotBody["idempotencyKey"])
+	}
+	for _, k := range []string{"title", "returnUrl"} {
 		if _, present := gotBody[k]; present {
 			t.Errorf("body unexpectedly includes empty optional field %q", k)
 		}
+	}
+}
+
+func TestCreateIntentRequiresIdempotencyKey(t *testing.T) {
+	called := false
+	client := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	_, err := client.CreateIntent(context.Background(), CreateIntentParams{
+		Amount:   5,
+		Currency: CurrencyEUR,
+	})
+	if err == nil {
+		t.Fatal("expected error for missing IdempotencyKey, got nil")
+	}
+	if called {
+		t.Error("server was called; want the request rejected client-side")
 	}
 }
 
@@ -209,8 +232,9 @@ func TestAPIErrorProblemDetails(t *testing.T) {
 	})
 
 	_, err := client.CreateIntent(context.Background(), CreateIntentParams{
-		Amount:   1,
-		Currency: CurrencyCHF,
+		Amount:         1,
+		Currency:       CurrencyCHF,
+		IdempotencyKey: "order-1",
 	})
 	if err == nil {
 		t.Fatal("expected error, got nil")

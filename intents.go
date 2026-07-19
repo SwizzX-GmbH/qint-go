@@ -2,13 +2,14 @@ package qint
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 )
 
-// CreateIntentParams are the inputs to CreateIntent. Amount and Currency are
-// required; the remaining fields are optional.
+// CreateIntentParams are the inputs to CreateIntent. Amount, Currency and
+// IdempotencyKey are required; the remaining fields are optional.
 type CreateIntentParams struct {
 	// Amount is the fiat amount to charge as a decimal, e.g. 19.90.
 	Amount float64 `json:"amount"`
@@ -17,9 +18,11 @@ type CreateIntentParams struct {
 	Currency Currency `json:"currency"`
 	// Title is an optional human-readable description shown at checkout.
 	Title string `json:"title,omitempty"`
-	// IdempotencyKey, when set, makes CreateIntent safe to retry: the API
-	// replays the original intent (HTTP 200) instead of creating a duplicate.
-	IdempotencyKey string `json:"idempotencyKey,omitempty"`
+	// IdempotencyKey is required and must be unique per merchant (e.g. your
+	// order id): the API rejects creates without one, and a retry with the
+	// same key replays the original intent (HTTP 200) instead of creating a
+	// duplicate.
+	IdempotencyKey string `json:"idempotencyKey"`
 	// ReturnURL is an optional https URL (max 500 chars) the buyer is sent
 	// back to after checkout.
 	ReturnURL string `json:"returnUrl,omitempty"`
@@ -27,8 +30,12 @@ type CreateIntentParams struct {
 
 // CreateIntent creates a new payment intent and returns it. Send the buyer to
 // the returned Intent.CheckoutURL to complete payment. Requires an API key
-// with the Write scope.
+// with the Write scope. It returns an error without making a request when
+// params.IdempotencyKey is empty.
 func (c *Client) CreateIntent(ctx context.Context, params CreateIntentParams) (*Intent, error) {
+	if params.IdempotencyKey == "" {
+		return nil, errors.New("qint: CreateIntent requires a non-empty IdempotencyKey")
+	}
 	var intent Intent
 	if err := c.do(ctx, http.MethodPost, "/intents", nil, params, &intent); err != nil {
 		return nil, err

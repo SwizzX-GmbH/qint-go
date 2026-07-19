@@ -42,10 +42,11 @@ func main() {
 
 	// 1. Create a payment intent.
 	intent, err := client.CreateIntent(context.Background(), qint.CreateIntentParams{
-		Amount:    19.90,
-		Currency:  qint.CurrencyCHF,
-		Title:     "Order #1024",
-		ReturnURL: "https://shop.example/thanks",
+		Amount:         19.90,
+		Currency:       qint.CurrencyCHF,
+		Title:          "Order #1024",
+		IdempotencyKey: "order-1024", // required — unique per merchant; safe to retry
+		ReturnURL:      "https://shop.example/thanks",
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -88,8 +89,8 @@ The client sends `Authorization: Bearer <apiKey>` on every request.
 type CreateIntentParams struct {
 	Amount         float64  // required, decimal, e.g. 19.90
 	Currency       Currency // required: CurrencyCHF | CurrencyEUR | CurrencyUSD
+	IdempotencyKey string   // required — unique per merchant; replays instead of duplicating on retry
 	Title          string   // optional
-	IdempotencyKey string   // optional — replays instead of duplicating on retry
 	ReturnURL      string   // optional https URL, <=500 chars
 }
 

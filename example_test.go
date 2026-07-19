@@ -16,10 +16,11 @@ func Example() {
 	client := qint.NewClient("qk_live_...")
 
 	intent, err := client.CreateIntent(context.Background(), qint.CreateIntentParams{
-		Amount:    19.90,
-		Currency:  qint.CurrencyCHF,
-		Title:     "Order #1024",
-		ReturnURL: "https://shop.example/thanks",
+		Amount:         19.90,
+		Currency:       qint.CurrencyCHF,
+		Title:          "Order #1024",
+		IdempotencyKey: "order-1024", // required — unique per merchant; safe to retry
+		ReturnURL:      "https://shop.example/thanks",
 	})
 	if err != nil {
 		log.Fatal(err)
