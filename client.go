@@ -13,7 +13,7 @@ import (
 
 // DefaultBaseURL is the production Qint merchant API endpoint. A dedicated
 // api.qint.ch host is planned; override it with WithBaseURL when it lands.
-const DefaultBaseURL = "https://qint-api.fly.dev/api/v1"
+const DefaultBaseURL = "https://api.qint.ch/api/v1"
 
 const defaultTimeout = 30 * time.Second
 

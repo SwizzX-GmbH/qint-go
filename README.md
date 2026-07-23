@@ -69,7 +69,7 @@ func main() {
 
 ```go
 client := qint.NewClient("qk_live_...",
-	qint.WithBaseURL("https://qint-api.fly.dev/api/v1"), // default; api.qint.ch is coming
+	qint.WithBaseURL("https://api.qint.ch/api/v1"), // default
 	qint.WithTimeout(15*time.Second),                    // default 30s
 	// qint.WithHTTPClient(myClient),                    // full control over transport
 )

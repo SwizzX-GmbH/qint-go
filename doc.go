@@ -18,7 +18,7 @@
 //	}
 //	// Redirect the buyer to intent.CheckoutURL to complete payment.
 //
-// The default base URL is https://qint-api.fly.dev/api/v1 and can be
+// The default base URL is https://api.qint.ch/api/v1 and can be
 // overridden with WithBaseURL (an api.qint.ch host is planned).
 //
 // See https://docs.qint.ch for the full API reference.
