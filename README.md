@@ -12,13 +12,14 @@ webhooks.
 ## Install
 
 ```sh
-go get github.com/SwizzX-GmbH/qint-go
+go get github.com/SwizzX-GmbH/qint-go@v0.1.0
 ```
 
-> The package is **not yet published to a language package registry** — Go
-> doesn't use one. Modules are served straight from Git, so the command above
-> works today against this repo. See [PUBLISH.md](./PUBLISH.md) for how
-> versions are released (tag-based).
+> **Released.** `v0.1.0` is tagged and resolvable through the public Go module
+> proxy (verified 2026-09-15). Go has no central registry to push to and needs no
+> publishing credentials — modules are served from Git and cached by
+> `proxy.golang.org`, so tagging *is* releasing. See [PUBLISH.md](./PUBLISH.md)
+> for how to cut the next version.
 
 ```go
 import qint "github.com/SwizzX-GmbH/qint-go"

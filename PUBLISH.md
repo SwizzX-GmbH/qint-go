@@ -6,8 +6,13 @@ directly from their Git source (here, GitHub) and cached/served by the public
 means **pushing a semantic-version tag** — there are no registry credentials
 and no `publish` command.
 
-The repo is already installable from Git today. Once `v0.1.0` is tagged and
-pushed, that exact version is resolvable by everyone.
+**`v0.1.0` is tagged, pushed and live** — verified against `proxy.golang.org` on
+2026-09-15, which reports it as the latest version. Nothing further is needed to
+release it; the steps below are for cutting the *next* version.
+
+This is the only one of the five Qint SDKs that is published. The others are
+blocked on registry tokens (Node, .NET), a name collision (Python), or an
+undecided distribution route (WooCommerce) — see `qint-api/docs/GO-LIVE.md` P1-3.
 
 ## Prerequisites
 
