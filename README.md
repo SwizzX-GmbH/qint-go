@@ -12,11 +12,12 @@ webhooks.
 ## Install
 
 ```sh
-go get github.com/SwizzX-GmbH/qint-go@v0.1.0
+go get github.com/SwizzX-GmbH/qint-go@v0.2.0
 ```
 
 > **Released.** `v0.1.0` is tagged and resolvable through the public Go module
-> proxy (verified 2026-09-15). Go has no central registry to push to and needs no
+> proxy (verified 2026-09-15); `v0.2.0` (GBP, the accepted-underpayment fields
+> and typed limit errors) is tagged once this release is merged. Go has no central registry to push to and needs no
 > publishing credentials — modules are served from Git and cached by
 > `proxy.golang.org`, so tagging *is* releasing. See [PUBLISH.md](./PUBLISH.md)
 > for how to cut the next version.
@@ -89,7 +90,7 @@ The client sends `Authorization: Bearer <apiKey>` on every request.
 ```go
 type CreateIntentParams struct {
 	Amount         float64  // required, decimal, e.g. 19.90
-	Currency       Currency // required: CurrencyCHF | CurrencyEUR | CurrencyUSD
+	Currency       Currency // required: CurrencyCHF | CurrencyEUR | CurrencyUSD | CurrencyGBP
 	IdempotencyKey string   // required — unique per merchant; replays instead of duplicating on retry
 	Title          string   // optional
 	ReturnURL      string   // optional https URL, <=500 chars
@@ -109,10 +110,16 @@ type ListIntentsParams struct {
 `Intent.Amount` and `PaymentStatusEvent.Amount` are decoded as `json.Number` to
 preserve the exact decimal the server sent — use `.String()` or `.Float64()`.
 
+`Intent` also has optional pointer fields that are `nil` when the response does
+not include them: `ReversedAt`, `FeeAmount`, `NetAmount`, `SettledAmount`,
+`ReceivedAmount`, `UnderpaidBps`, `CreditUsdt` and `CreditRate`.
+
 ### Errors
 
 Any non-2xx response is returned as a typed `*QintError` carrying the HTTP
-status and the API's RFC 7807 problem-details `detail` message:
+status, the API's RFC 7807 problem-details `detail` message, the
+machine-readable `Code` (when sent) and every other problem member in
+`Extensions`:
 
 ```go
 intent, err := client.CreateIntent(ctx, params)
@@ -127,6 +134,31 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
+### Payment limits
+
+Each payment must be between CHF 10 and CHF 100'000 (or the equivalent in EUR,
+USD or GBP). Outside that range `CreateIntent` returns a `400` `*QintError` with
+`Code == qint.ErrCodeAmountOutOfRange` (`"amount_out_of_range"`) and the numbers
+in `MinChf`, `MaxChf` and `AmountChf` (`*json.Number`). If no exchange rate is
+available to judge a non-CHF amount it returns a `503` with
+`Code == qint.ErrCodeRateUnavailable` (`"rate_unavailable"`) — retry in a minute.
+
+```go
+if errors.As(err, &qerr) && qerr.Code == qint.ErrCodeAmountOutOfRange {
+	log.Printf("%s (allowed CHF %s–%s)", qerr.Detail, qerr.MinChf, qerr.MaxChf)
+}
+```
+
+### Underpaid payments
+
+A payment that comes up short but within your accepted underpayment still
+settles. The `payment.status` webhook then carries `Underpaid` = true,
+`ReceivedAmount` (the fiat amount actually paid, in the intent's currency) and
+`UnderpaidBps` (how short, in basis points of the invoice); both are `nil`
+otherwise. `Intent` declares the same two fields. A non-nil `ReversedAt` means
+the payment was reversed after settlement: treat it as not paid even though its
+status stays `settled`.
 
 ## Webhooks
 
@@ -181,7 +213,8 @@ func handleQintWebhook(signingSecret string) http.HandlerFunc {
 
 `PaymentStatusEvent` fields: `Type` (`"payment.status"`), `IntentID`, `Status`,
 `Amount`, `Currency`, `AssetSymbol`, `InvoiceID?`, `PaymentLinkID?`,
-`OccurredAt`, `Underpaid?`, `ExpectedCryptoAmount?`, `ReceivedCryptoAmount?`.
+`OccurredAt`, `Underpaid?`, `ReceivedAmount?`, `UnderpaidBps?`,
+`ExpectedCryptoAmount?`, `ReceivedCryptoAmount?`, `Reversed?`, `ReversedAt?`.
 
 ## Development
 

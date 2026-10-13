@@ -24,7 +24,7 @@ undecided distribution route (WooCommerce) — see `qint-api/docs/GO-LIVE.md` P1
 ## Release steps
 
 1. Make sure `Version` in `doc.go` matches the tag you are about to cut
-   (`0.1.0` ⇄ `v0.1.0`).
+   (currently `0.2.0` ⇄ `v0.2.0`).
 
 2. Verify locally:
 

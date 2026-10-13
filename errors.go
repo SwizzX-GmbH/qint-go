@@ -1,8 +1,21 @@
 package qint
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+)
+
+// Machine-readable error codes the API puts in a problem body's "code"
+// member (see QintError.Code).
+const (
+	// ErrCodeAmountOutOfRange: HTTP 400 on create — the amount is outside the
+	// per-payment limits (CHF 10 to CHF 100'000 or the equivalent). MinChf,
+	// MaxChf and AmountChf carry the numbers.
+	ErrCodeAmountOutOfRange = "amount_out_of_range"
+	// ErrCodeRateUnavailable: HTTP 503 on create — no exchange rate was
+	// available to judge the limits. Retry shortly.
+	ErrCodeRateUnavailable = "rate_unavailable"
 )
 
 // QintError is returned for any non-2xx API response. It carries the HTTP
@@ -10,8 +23,8 @@ import (
 // the API. Use errors.As to extract it:
 //
 //	var qerr *qint.QintError
-//	if errors.As(err, &qerr) && qerr.StatusCode == 403 {
-//		// missing scope, etc.
+//	if errors.As(err, &qerr) && qerr.Code == qint.ErrCodeAmountOutOfRange {
+//		// qerr.MinChf, qerr.MaxChf, qerr.AmountChf
 //	}
 type QintError struct {
 	// StatusCode is the HTTP status code of the response.
@@ -22,16 +35,36 @@ type QintError struct {
 	Title string
 	// Detail is the human-readable explanation specific to this occurrence.
 	Detail string
+	// Code is the machine-readable error code, if any — for example
+	// ErrCodeAmountOutOfRange or ErrCodeRateUnavailable.
+	Code string
+	// MinChf, MaxChf and AmountChf are set on amount_out_of_range: the
+	// allowed range and the requested amount, in CHF. nil otherwise.
+	MinChf    *json.Number
+	MaxChf    *json.Number
+	AmountChf *json.Number
+	// Extensions holds every top-level problem member beyond type, title,
+	// status, detail and instance (the API serialises extensions flat), with
+	// numbers decoded as json.Number. nil when the body was not a JSON object.
+	Extensions map[string]any
 	// Body is the raw response body, retained for debugging.
 	Body string
 }
 
 // problemDetails mirrors the RFC 7807 application/problem+json body.
 type problemDetails struct {
-	Type   string `json:"type"`
-	Title  string `json:"title"`
-	Status int    `json:"status"`
-	Detail string `json:"detail"`
+	Type      string       `json:"type"`
+	Title     string       `json:"title"`
+	Status    int          `json:"status"`
+	Detail    string       `json:"detail"`
+	Code      string       `json:"code"`
+	MinChf    *json.Number `json:"minChf"`
+	MaxChf    *json.Number `json:"maxChf"`
+	AmountChf *json.Number `json:"amountChf"`
+}
+
+var standardProblemMembers = map[string]bool{
+	"type": true, "title": true, "status": true, "detail": true, "instance": true,
 }
 
 func newQintError(status int, body []byte) *QintError {
@@ -41,6 +74,21 @@ func newQintError(status int, body []byte) *QintError {
 		e.Type = p.Type
 		e.Title = p.Title
 		e.Detail = p.Detail
+		e.Code = p.Code
+		e.MinChf = p.MinChf
+		e.MaxChf = p.MaxChf
+		e.AmountChf = p.AmountChf
+	}
+	var all map[string]any
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	if err := dec.Decode(&all); err == nil && all != nil {
+		e.Extensions = map[string]any{}
+		for k, v := range all {
+			if !standardProblemMembers[k] {
+				e.Extensions[k] = v
+			}
+		}
 	}
 	return e
 }

@@ -14,7 +14,11 @@ import (
 //
 // Amount is decoded as json.Number to preserve the exact decimal value.
 // Underpaid is a pointer so a missing field (nil) is distinguishable from an
-// explicit false.
+// explicit false. ReceivedAmount (the fiat amount actually paid, in Currency)
+// and UnderpaidBps (how short, in basis points of the invoice) are set when the
+// payment settled short within the merchant's accepted underpayment, nil
+// otherwise. ExpectedCryptoAmount / ReceivedCryptoAmount are 8-decimal-place
+// strings. Reversed / ReversedAt flag a payment reversed after settlement.
 type PaymentStatusEvent struct {
 	Type                 string       `json:"type"`
 	IntentID             string       `json:"intentId"`
@@ -28,6 +32,10 @@ type PaymentStatusEvent struct {
 	Underpaid            *bool        `json:"underpaid,omitempty"`
 	ExpectedCryptoAmount string       `json:"expectedCryptoAmount,omitempty"`
 	ReceivedCryptoAmount string       `json:"receivedCryptoAmount,omitempty"`
+	ReceivedAmount       *json.Number `json:"receivedAmount,omitempty"`
+	UnderpaidBps         *int         `json:"underpaidBps,omitempty"`
+	Reversed             *bool        `json:"reversed,omitempty"`
+	ReversedAt           *time.Time   `json:"reversedAt,omitempty"`
 }
 
 // signaturePrefix is the scheme label on the X-Qint-Signature header value.

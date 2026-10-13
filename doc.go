@@ -18,11 +18,13 @@
 //	}
 //	// Redirect the buyer to intent.CheckoutURL to complete payment.
 //
+// Currency is one of CurrencyCHF, CurrencyEUR, CurrencyUSD or CurrencyGBP.
+//
 // The default base URL is https://api.qint.ch/api/v1 and can be
-// overridden with WithBaseURL (an api.qint.ch host is planned).
+// overridden with WithBaseURL.
 //
 // See https://docs.qint.ch for the full API reference.
 package qint
 
 // Version is the semantic version of this SDK.
-const Version = "0.1.0"
+const Version = "0.2.0"
