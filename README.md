@@ -12,12 +12,12 @@ webhooks.
 ## Install
 
 ```sh
-go get github.com/SwizzX-GmbH/qint-go@v0.2.0
+go get github.com/SwizzX-GmbH/qint-go@v0.3.0
 ```
 
-> **Released.** `v0.1.0` is tagged and resolvable through the public Go module
-> proxy (verified 2026-09-15); `v0.2.0` (GBP, the accepted-underpayment fields
-> and typed limit errors) is tagged once this release is merged. Go has no central registry to push to and needs no
+> **Released.** `v0.1.0`, `v0.2.0` and `v0.3.0` are tagged and resolvable
+> through the public Go module proxy. See [CHANGELOG.md](./CHANGELOG.md) for
+> what each version added. Go has no central registry to push to and needs no
 > publishing credentials — modules are served from Git and cached by
 > `proxy.golang.org`, so tagging *is* releasing. See [PUBLISH.md](./PUBLISH.md)
 > for how to cut the next version.
@@ -86,6 +86,7 @@ The client sends `Authorization: Bearer <apiKey>` on every request.
 | `CreateIntent(ctx, CreateIntentParams) (*Intent, error)` | Create a payment intent | Write |
 | `GetIntent(ctx, id string) (*Intent, error)` | Fetch one intent by id | Read |
 | `ListIntents(ctx, ListIntentsParams) (*IntentList, error)` | List intents (paged, newest first) | Read |
+| `ListCurrencies(ctx) (*CurrencyList, error)` | Which fiat currencies are offered for new payments right now | none (public) |
 
 ```go
 type CreateIntentParams struct {
@@ -111,15 +112,52 @@ type ListIntentsParams struct {
 preserve the exact decimal the server sent — use `.String()` or `.Float64()`.
 
 `Intent` also has optional pointer fields that are `nil` when the response does
-not include them: `ReversedAt`, `FeeAmount`, `NetAmount`, `SettledAmount`,
-`ReceivedAmount`, `UnderpaidBps`, `CreditUsdt` and `CreditRate`.
+not include them (or sends `null`): `ReversedAt`, `FeeAmount`, `NetAmount`
+(both `nil` until the payment settles), `SettledAmount`, `ReceivedAmount`,
+`UnderpaidBps`, `CreditUsdt`, `CreditRate` and `CreditAsset`, plus the
+`Reversed` and `Underpaid` flags (`false` when absent). Unknown response fields
+are ignored, so newer API versions never break decoding.
+
+### Settlement asset
+
+Your balance is held in a stablecoin: **USDC** for merchants registered in the
+European Union (USDT is not authorised under MiCA), **USDT** for everyone else.
+Once a payment is credited, `Intent.CreditAsset` says which one
+(`qint.SettlementAssetUSDT` / `qint.SettlementAssetUSDC`), `CreditUsdt` is the
+amount credited in that asset (the field name predates USDC) and `CreditRate`
+the rate, in units of the intent's currency per 1 unit of `CreditAsset`.
+
+### Currencies
+
+Qint can switch a fiat currency off for new payments (and back on) at any
+time. `ListCurrencies` calls the public `GET /api/v1/public/currencies`
+endpoint; cache the result for about 30 seconds and offer only the enabled
+ones:
+
+```go
+list, err := client.ListCurrencies(ctx)
+if err != nil {
+	log.Fatal(err)
+}
+for _, c := range list.EnabledCurrencies() { // e.g. [CHF EUR USD GBP]
+	fmt.Println("offer", c)
+}
+if !list.IsEnabled(qint.CurrencyGBP) {
+	// hide GBP at checkout
+}
+```
+
+Creating an intent in a disabled currency returns a `400` `*QintError` with no
+`Code` and a `Detail` such as `"GBP is currently disabled on Qint. currency
+must be one of: CHF, EUR, USD."`. Intents already created in that currency keep
+working.
 
 ### Errors
 
 Any non-2xx response is returned as a typed `*QintError` carrying the HTTP
 status, the API's RFC 7807 problem-details `detail` message, the
-machine-readable `Code` (when sent) and every other problem member in
-`Extensions`:
+machine-readable `Code` (when sent), the `TraceID` (quote it to support) and
+every other problem member in `Extensions`:
 
 ```go
 intent, err := client.CreateIntent(ctx, params)
@@ -138,11 +176,16 @@ if err != nil {
 ### Payment limits
 
 Each payment must be between CHF 10 and CHF 100'000 (or the equivalent in EUR,
-USD or GBP). Outside that range `CreateIntent` returns a `400` `*QintError` with
+USD or GBP, or your individually agreed cap). Outside that range `CreateIntent` returns a `400` `*QintError` with
 `Code == qint.ErrCodeAmountOutOfRange` (`"amount_out_of_range"`) and the numbers
 in `MinChf`, `MaxChf` and `AmountChf` (`*json.Number`). If no exchange rate is
 available to judge a non-CHF amount it returns a `503` with
 `Code == qint.ErrCodeRateUnavailable` (`"rate_unavailable"`) — retry in a minute.
+
+`qint.ErrCodeSettlementAssetMismatch` (`"settlement_asset_mismatch"`) is also
+defined: the dashboard's payout endpoints return it when a crypto payout is
+requested in an asset other than your settlement asset. The merchant API this
+client wraps does not return it.
 
 ```go
 if errors.As(err, &qerr) && qerr.Code == qint.ErrCodeAmountOutOfRange {
@@ -199,6 +242,11 @@ func handleQintWebhook(signingSecret string) http.HandlerFunc {
 			return
 		}
 
+		if event.Type != qint.EventTypePaymentStatus {
+			w.WriteHeader(http.StatusOK) // ping or a newer event type: ack and ignore
+			return
+		}
+
 		switch event.Status {
 		case qint.StatusSettled:
 			// fulfill the order for event.IntentID
@@ -210,6 +258,13 @@ func handleQintWebhook(signingSecret string) http.HandlerFunc {
 	}
 }
 ```
+
+Event types are `qint.EventTypePaymentStatus` (`"payment.status"`) and
+`qint.EventTypePing` (`"ping"`, the dashboard's **Send test event**; decode it
+with `qint.ParsePingEvent` to get `EndpointID` and `SentAt`). `ParseEvent`
+decodes any type without error — check `event.Type`, act on
+`payment.status`, and acknowledge (2xx) and ignore anything else so future
+event types never break your handler.
 
 `PaymentStatusEvent` fields: `Type` (`"payment.status"`), `IntentID`, `Status`,
 `Amount`, `Currency`, `AssetSymbol`, `InvoiceID?`, `PaymentLinkID?`,

@@ -16,6 +16,11 @@ const (
 	// ErrCodeRateUnavailable: HTTP 503 on create — no exchange rate was
 	// available to judge the limits. Retry shortly.
 	ErrCodeRateUnavailable = "rate_unavailable"
+	// ErrCodeSettlementAssetMismatch: HTTP 400 — a crypto payout was requested
+	// in an asset other than the merchant's settlement asset (USDT, or USDC
+	// for EU merchants). Returned by the payout endpoints of the dashboard
+	// API, not by the merchant API this client wraps; listed for completeness.
+	ErrCodeSettlementAssetMismatch = "settlement_asset_mismatch"
 )
 
 // QintError is returned for any non-2xx API response. It carries the HTTP
@@ -35,6 +40,9 @@ type QintError struct {
 	Title string
 	// Detail is the human-readable explanation specific to this occurrence.
 	Detail string
+	// TraceID is the request correlation id ("traceId") — include it in
+	// support requests.
+	TraceID string
 	// Code is the machine-readable error code, if any — for example
 	// ErrCodeAmountOutOfRange or ErrCodeRateUnavailable.
 	Code string
@@ -57,6 +65,7 @@ type problemDetails struct {
 	Title     string       `json:"title"`
 	Status    int          `json:"status"`
 	Detail    string       `json:"detail"`
+	TraceID   string       `json:"traceId"`
 	Code      string       `json:"code"`
 	MinChf    *json.Number `json:"minChf"`
 	MaxChf    *json.Number `json:"maxChf"`
@@ -74,6 +83,7 @@ func newQintError(status int, body []byte) *QintError {
 		e.Type = p.Type
 		e.Title = p.Title
 		e.Detail = p.Detail
+		e.TraceID = p.TraceID
 		e.Code = p.Code
 		e.MinChf = p.MinChf
 		e.MaxChf = p.MaxChf
