@@ -6,8 +6,8 @@ directly from their Git source (here, GitHub) and cached/served by the public
 means **pushing a semantic-version tag** — there are no registry credentials
 and no `publish` command.
 
-**`v0.1.0` is tagged, pushed and live** — verified against `proxy.golang.org` on
-2026-09-15, which reports it as the latest version. Nothing further is needed to
+**`v0.1.0`, `v0.2.0` and `v0.3.0` are tagged, pushed and live** on
+`proxy.golang.org` (`v0.3.0` verified 2026-10-14). Nothing further is needed to
 release it; the steps below are for cutting the *next* version.
 
 This is the only one of the five Qint SDKs that is published. The others are
@@ -24,7 +24,7 @@ undecided distribution route (WooCommerce) — see `qint-api/docs/GO-LIVE.md` P1
 ## Release steps
 
 1. Make sure `Version` in `doc.go` matches the tag you are about to cut
-   (currently `0.2.0` ⇄ `v0.2.0`).
+   (currently `0.3.0` ⇄ `v0.3.0`).
 
 2. Verify locally:
 

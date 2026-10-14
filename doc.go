@@ -27,4 +27,4 @@
 package qint
 
 // Version is the semantic version of this SDK.
-const Version = "0.2.0"
+const Version = "0.3.0"

@@ -11,10 +11,13 @@ import (
 // CreateIntentParams are the inputs to CreateIntent. Amount, Currency and
 // IdempotencyKey are required; the remaining fields are optional.
 type CreateIntentParams struct {
-	// Amount is the fiat amount to charge as a decimal, e.g. 19.90.
+	// Amount is the fiat amount to charge as a decimal, e.g. 19.90. Converted
+	// to CHF it must be between 10 and 100'000 (or your agreed cap), else the
+	// API returns 400 with Code ErrCodeAmountOutOfRange.
 	Amount float64 `json:"amount"`
-	// Currency is the settlement currency (CurrencyCHF, CurrencyEUR or
-	// CurrencyUSD).
+	// Currency is the settlement currency (CurrencyCHF, CurrencyEUR,
+	// CurrencyUSD or CurrencyGBP). A currency Qint has switched off for new
+	// payments is refused with a 400 — see ListCurrencies.
 	Currency Currency `json:"currency"`
 	// Title is an optional human-readable description shown at checkout.
 	Title string `json:"title,omitempty"`
@@ -82,6 +85,20 @@ func (c *Client) ListIntents(ctx context.Context, params ListIntentsParams) (*In
 
 	var list IntentList
 	if err := c.do(ctx, http.MethodGet, "/intents", query, nil, &list); err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
+// ListCurrencies returns every fiat currency Qint knows, with whether it is
+// offered for new payments right now (GET /public/currencies). The endpoint
+// is public — no scope is required — and the response is cacheable for 30
+// seconds: cache it on your side and use it to hide disabled currencies
+// instead of calling it on every checkout. Creating an intent in a disabled
+// currency fails with HTTP 400.
+func (c *Client) ListCurrencies(ctx context.Context) (*CurrencyList, error) {
+	var list CurrencyList
+	if err := c.do(ctx, http.MethodGet, "/public/currencies", nil, nil, &list); err != nil {
 		return nil, err
 	}
 	return &list, nil

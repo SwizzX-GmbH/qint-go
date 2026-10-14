@@ -63,3 +63,16 @@ func ExampleVerifyWebhookSignature_handler() {
 		w.WriteHeader(http.StatusOK) // ack fast
 	})
 }
+
+func ExampleClient_ListCurrencies() {
+	client := qint.NewClient("qk_live_...")
+
+	// Cache this for ~30 s; offer only the enabled currencies at checkout.
+	list, err := client.ListCurrencies(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, c := range list.EnabledCurrencies() {
+		fmt.Println("offer:", c)
+	}
+}

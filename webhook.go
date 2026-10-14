@@ -9,6 +9,22 @@ import (
 	"time"
 )
 
+// Webhook event types. Handlers should acknowledge (2xx) and ignore types they
+// do not recognise, so future event types never break them.
+const (
+	EventTypePaymentStatus = "payment.status"
+	EventTypePing          = "ping"
+)
+
+// PingEvent is the payload of the test event sent from the dashboard ("Send
+// test event"). It is signed like any other delivery; verify it, return 2xx
+// and ignore it.
+type PingEvent struct {
+	Type       string    `json:"type"`
+	EndpointID string    `json:"endpointId"`
+	SentAt     time.Time `json:"sentAt"`
+}
+
 // PaymentStatusEvent is the JSON payload delivered to a merchant webhook
 // endpoint. Its Type is always "payment.status".
 //
@@ -64,9 +80,21 @@ func VerifyWebhookSignature(rawBody []byte, signatureHeader, secret string) bool
 }
 
 // ParseEvent unmarshals a webhook request body into a PaymentStatusEvent.
-// Verify the signature with VerifyWebhookSignature first.
+// Verify the signature with VerifyWebhookSignature first. Any event type
+// decodes without error — check Type (EventTypePaymentStatus, EventTypePing,
+// or something newer) before acting on the payment fields; use
+// ParsePingEvent for the ping payload.
 func ParseEvent(rawBody []byte) (*PaymentStatusEvent, error) {
 	var event PaymentStatusEvent
+	if err := json.Unmarshal(rawBody, &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+// ParsePingEvent unmarshals a "ping" webhook body into a PingEvent.
+func ParsePingEvent(rawBody []byte) (*PingEvent, error) {
+	var event PingEvent
 	if err := json.Unmarshal(rawBody, &event); err != nil {
 		return nil, err
 	}
